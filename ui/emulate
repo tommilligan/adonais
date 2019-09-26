@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -ex
+
+export GOOGLE_APPLICATION_CREDENTIALS="secret/adonais-a3bf8-eb4eeefbff38.json"
+
+firebase emulators:start
