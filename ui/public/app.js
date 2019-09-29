@@ -63,55 +63,61 @@ var ui = new firebaseui.auth.AuthUI(firebase.auth());
 // Disable auto-sign in.
 ui.disableAutoSignIn();
 
-/**
- * @return {string} The URL of the FirebaseUI standalone widget.
- */
-function getWidgetUrl() {
-    return (
-        "/widget#recaptcha=" +
-        getRecaptchaMode() +
-        "&emailSignInMethod=" +
-        getEmailSignInMethod()
-    );
+const URI =
+    "https://lsm-education.kcl.ac.uk/apicommonstring/api/values/Mod-Module.5MBBSStage2";
+
+async function fetchKeatsData() {
+    const response = await fetch(URI);
+    return response.json();
 }
 
-/**
- * Redirects to the FirebaseUI widget.
- */
-var signInWithRedirect = function() {
-    window.location.assign(getWidgetUrl());
-};
+async function insertCalendarAndSaveId(user_document_ref) {
+    console.log("Inserting new calendar");
+    let response = await gapi.client.calendar.calendars.insert({
+        summary: "King's (via adonais)",
+        timeZone: "Europe/London"
+    });
+    let calendar_id = response.result.id;
+    user_document_ref.set({ calendar_id: calendar_id });
+    return calendar_id;
+}
 
-/**
- * Open a popup with the FirebaseUI widget.
- */
-var signInWithPopup = function() {
-    window.open(getWidgetUrl(), "Sign In", "width=985,height=735");
-};
-
-// Print out the User and the 10 latest calendar events
-function startApp(user) {
-    var user_store = firebase
+async function startApp(user) {
+    console.log("Starting app...");
+    var user_document_ref = firebase
         .firestore()
         .collection("users")
         .doc(user.user.uid);
-    return user_store.get().then(function(doc) {
-        console.log(doc);
-        var existing_calendar_id = doc.get("calendar_id");
-        if (existing_calendar_id) {
-            console.log("Already created calendar " + existing_calendar_id);
-        } else {
-            console.log("Creating new calendar");
-            gapi.client.calendar.calendars
-                .insert({
-                    summary: "King's (via adonais)",
-                    timeZone: "Europe/London"
-                })
-                .then(function(response) {
-                    return user_store.set({ calendar_id: response.result.id });
-                });
+
+    var user_document = await user_document_ref.get();
+    var existing_calendar_id = user_document.get("calendar_id");
+
+    // if we don't have an existing calendar id, create one and get the id
+    // if we do have one, try to load it
+    // if it turns out not to exist, the user deleted it, just create another
+
+    if (existing_calendar_id) {
+        console.log("Already created calendar " + existing_calendar_id);
+        try {
+            await gapi.client.calendar.calendars.get({
+                calendarId: existing_calendar_id
+            });
+        } catch (error) {
+            console.warn(error);
+            if (error.status === 404) {
+                console.log("Missing calendar, create again");
+                existing_calendar_id = await insertCalendarAndSaveId(
+                    user_document_ref
+                );
+            } else {
+                throw error;
+            }
         }
-    });
+    } else {
+        existing_calendar_id = insertCalendarAndSaveId(user_document_ref);
+    }
+
+    console.log(existing_calendar_id);
 }
 
 /**
@@ -144,10 +150,13 @@ var handleSignedInUser = function(user) {
                         .then(user => {
                             // you can use (user) or googleProfile to setup the user
                             var googleProfile = googleUser.getBasicProfile();
-                            if (user) {
-                                console.log(user);
+
+                            var syncCalendar = function() {
                                 startApp(user);
-                            }
+                            };
+                            document
+                                .getElementById("sync-calendar")
+                                .addEventListener("click", syncCalendar);
                         });
                 }
             });
@@ -226,38 +235,9 @@ var deleteAccount = function() {
 };
 
 /**
- * Handles when the user changes the reCAPTCHA or email signInMethod config.
- */
-function handleConfigChange() {
-    var newRecaptchaValue = document.querySelector(
-        'input[name="recaptcha"]:checked'
-    ).value;
-    var newEmailSignInMethodValue = document.querySelector(
-        'input[name="emailSignInMethod"]:checked'
-    ).value;
-    location.replace(
-        location.pathname +
-            "#recaptcha=" +
-            newRecaptchaValue +
-            "&emailSignInMethod=" +
-            newEmailSignInMethodValue
-    );
-
-    // Reset the inline widget so the config changes are reflected.
-    ui.reset();
-    ui.start("#firebaseui-container", getUiConfig());
-}
-
-/**
  * Initializes the app.
  */
 var initApp = function() {
-    document
-        .getElementById("sign-in-with-redirect")
-        .addEventListener("click", signInWithRedirect);
-    document
-        .getElementById("sign-in-with-popup")
-        .addEventListener("click", signInWithPopup);
     document.getElementById("sign-out").addEventListener("click", function() {
         firebase.auth().signOut();
     });
@@ -266,30 +246,6 @@ var initApp = function() {
         .addEventListener("click", function() {
             deleteAccount();
         });
-
-    document
-        .getElementById("recaptcha-normal")
-        .addEventListener("change", handleConfigChange);
-    document
-        .getElementById("recaptcha-invisible")
-        .addEventListener("change", handleConfigChange);
-    // Check the selected reCAPTCHA mode.
-    document.querySelector(
-        'input[name="recaptcha"][value="' + getRecaptchaMode() + '"]'
-    ).checked = true;
-
-    document
-        .getElementById("email-signInMethod-password")
-        .addEventListener("change", handleConfigChange);
-    document
-        .getElementById("email-signInMethod-emailLink")
-        .addEventListener("change", handleConfigChange);
-    // Check the selected email signInMethod mode.
-    document.querySelector(
-        'input[name="emailSignInMethod"][value="' +
-            getEmailSignInMethod() +
-            '"]'
-    ).checked = true;
 };
 
 window.addEventListener("load", initApp);
