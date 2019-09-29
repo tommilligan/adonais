@@ -1,0 +1,9 @@
+[package]
+name = "adonais_sync"
+version = "0.1.0"
+authors = ["Tom Milligan <code@tommilligan.net>"]
+edition = "2018"
+
+[dependencies]
+adonais_core = { path = "../adonais_core" }
+reqwest = "0.9.20"

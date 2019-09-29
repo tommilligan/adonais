@@ -14,3 +14,8 @@ The raw data is available from https://lsm-education.kcl.ac.uk/apicommonstring/a
 This is an unsecured endpoint that responds to a plain GET with JSON format data.
 Schema appears to be constant, with no nesting.
 Keys are always present, missing data is represented by `null`s.
+
+## Preferences
+
+Group 253
+Calendar name: GKT Year 2
