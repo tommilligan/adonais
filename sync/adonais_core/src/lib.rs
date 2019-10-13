@@ -88,25 +88,30 @@ impl From<Event> for google::Event {
         // Pull other fields together into description
         google::Event {
             summary,
-            start_datetime,
-            end_datetime,
+            start: google::Time {
+                datetime: start_datetime,
+            },
+            end: google::Time {
+                datetime: end_datetime,
+            },
             description,
             location,
         }
     }
 }
 
-/// Convert a JSON list of events from the Keats API, ready to create Google
-/// calendara events
 #[wasm_bindgen]
-pub fn keats_to_google_calendar_events(keats_json: &str) -> String {
-    let keats_events: Vec<keats::Event> = serde_json::from_str(keats_json).unwrap();
+pub fn keats_to_google_calendar_events(js_value: &JsValue) -> JsValue {
+    let keats_events: Vec<keats::Event> = js_value.into_serde().unwrap();
     let google_events: Vec<google::Event> = keats_events
         .into_iter()
-        .map(|event| Event::try_from(event).unwrap())
-        .map(google::Event::from)
+        .map(keats_to_google_calendar_event)
         .collect();
-    serde_json::to_string(&google_events).unwrap()
+    JsValue::from_serde(&google_events).unwrap()
+}
+
+pub fn keats_to_google_calendar_event(keats_event: keats::Event) -> google::Event {
+    google::Event::from(Event::try_from(keats_event).unwrap())
 }
 
 #[cfg(test)]
@@ -167,5 +172,67 @@ mod tests {
             ..base_keats_event.clone()
         })
         .is_err())
+    }
+
+    #[test]
+    fn test_google_event_from_event() {
+        let base_event = Event {
+            date: NaiveDate::from_ymd(2019, 08, 12),
+            start_time: NaiveTime::from_hms(14, 03, 00),
+            end_time: NaiveTime::from_hms(15, 00, 00),
+            code: "CODE001".to_owned(),
+            groups: vec![253, 254, 255, 256],
+            groups_raw: Some("253-256".to_owned()),
+            title: Some("Introduction to Clinical Pharmacology".to_owned()),
+            type_: Some("Lecture".to_owned()),
+            staff: Some("John Keats".to_owned()),
+            room: Some("Room 3b".to_owned()),
+            campus: Some("Unseen University".to_owned()),
+        };
+        let base_google_event = google::Event {
+            start: google::Time {
+                datetime: "2019-08-12T14:03:00+01:00".to_owned(),
+            },
+            end: google::Time {
+                datetime: "2019-08-12T15:00:00+01:00".to_owned(),
+            },
+            summary: "Introduction to Clinical Pharmacology, 253-256".to_owned(),
+            description: "CODE001\nJohn Keats\nLecture".to_owned(),
+            location: "Room 3b, Unseen University".to_owned(),
+        };
+
+        // All fields present (with DST!)
+        assert_eq!(google::Event::from(base_event.clone()), base_google_event);
+
+        // Timezones handled (non-DST)
+        assert_eq!(
+            google::Event::from(Event {
+                date: NaiveDate::from_ymd(2019, 12, 21),
+                ..base_event.clone()
+            }),
+            google::Event {
+                start: google::Time {
+                    datetime: "2019-12-21T14:03:00+00:00".to_owned(),
+                },
+                end: google::Time {
+                    datetime: "2019-12-21T15:00:00+00:00".to_owned(),
+                },
+                ..base_google_event.clone()
+            }
+        );
+
+        // Description & location concat nicely
+        assert_eq!(
+            google::Event::from(Event {
+                staff: None,
+                room: None,
+                ..base_event.clone()
+            }),
+            google::Event {
+                description: "CODE001\nLecture".to_owned(),
+                location: "Unseen University".to_owned(),
+                ..base_google_event.clone()
+            }
+        );
     }
 }

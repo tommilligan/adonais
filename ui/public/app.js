@@ -1,3 +1,5 @@
+import init, { keats_to_google_calendar_events } from "./pkg/adonais_core.js";
+
 /*
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
@@ -63,12 +65,13 @@ var ui = new firebaseui.auth.AuthUI(firebase.auth());
 // Disable auto-sign in.
 ui.disableAutoSignIn();
 
-const URI =
-    "https://lsm-education.kcl.ac.uk/apicommonstring/api/values/Mod-Module.5MBBSStage2";
+const URI = "https://europe-west2-adonais-a3bf8.cloudfunctions.net/proxy-keats";
 
-async function fetchKeatsData() {
+async function fetchEvents() {
     const response = await fetch(URI);
-    return response.json();
+    const keatsJson = await response.json();
+    const googleJson = keats_to_google_calendar_events(keatsJson);
+    return googleJson;
 }
 
 async function insertCalendarAndSaveId(user_document_ref) {
@@ -82,42 +85,95 @@ async function insertCalendarAndSaveId(user_document_ref) {
     return calendar_id;
 }
 
+async function getCalendarId(user_document_ref) {
+    let user_document = await user_document_ref.get();
+    let calendar_id = user_document.get("calendar_id");
+    let calendar;
+
+    // if we don't have an existing calendar id, create one and get the id
+    // if we do have one, try to load it
+    // if it turns out not to exist, the user deleted it, just create another
+
+    if (calendar_id) {
+        console.log("Already created calendar " + calendar_id);
+        try {
+            await gapi.client.calendar.calendars.get({
+                calendarId: calendar_id
+            });
+        } catch (error) {
+            if (error.status === 404) {
+                console.log("Missing calendar, create again");
+                calendar_id = await insertCalendarAndSaveId(user_document_ref);
+            } else {
+                throw error;
+            }
+        }
+    } else {
+        calendar_id = await insertCalendarAndSaveId(user_document_ref);
+    }
+    return calendar_id;
+}
+
 async function startApp(user) {
+    console.log("Loading wasm...");
+    await init();
     console.log("Starting app...");
     var user_document_ref = firebase
         .firestore()
         .collection("users")
         .doc(user.user.uid);
 
-    var user_document = await user_document_ref.get();
-    var existing_calendar_id = user_document.get("calendar_id");
+    let calendar_id = await getCalendarId(user_document_ref);
+    const googleEvents = await fetchEvents();
 
-    // if we don't have an existing calendar id, create one and get the id
-    // if we do have one, try to load it
-    // if it turns out not to exist, the user deleted it, just create another
+    // let's only concern ourselves with now
+    // (new Date()).toISOString()
+    //
+    // and sync the next three months of data
+    // we can filter the json event with a simple string startswith
+    //
+    //
+    // then, list all events in the calendar from now forwards
+    // delete them (batches of 50
+    //
+    //
+    // then, replace with the next three onths worth of events
+    // simple!
 
-    if (existing_calendar_id) {
-        console.log("Already created calendar " + existing_calendar_id);
-        try {
-            await gapi.client.calendar.calendars.get({
-                calendarId: existing_calendar_id
-            });
-        } catch (error) {
-            console.warn(error);
-            if (error.status === 404) {
-                console.log("Missing calendar, create again");
-                existing_calendar_id = await insertCalendarAndSaveId(
-                    user_document_ref
-                );
-            } else {
-                throw error;
-            }
-        }
-    } else {
-        existing_calendar_id = insertCalendarAndSaveId(user_document_ref);
-    }
+    //let pageToken = null;
+    //do {
+    //events = service.events().list('primary').setPageToken(pageToken).execute();
 
-    console.log(existing_calendar_id);
+    //// list all events in the calendar, stargin
+
+    //gapi.client.calendar.events.list({
+    //calendarId: calendar_id,
+    //maxResults:
+    //})
+    //List<Event> items = events.getItems();
+    //for (Event event : items) {
+    //System.out.println(event.getSummary());
+    //}
+    //pageToken = events.getNextPageToken();
+    //} while (pageToken != null);
+    //do {
+    //text += "The number is " + i;
+    //i++;
+    //}
+    //while (i < 5);
+
+    const create_batch = gapi.client.newBatch();
+    const test_events = googleEvents.slice(0, 3);
+    test_events.forEach(function(test_event) {
+        create_batch.add(
+            gapi.client.calendar.events.insert({
+                calendarId: calendar_id,
+                resource: test_event
+            })
+        );
+    });
+    const batch_result = await create_batch;
+    console.log(batch_result);
 }
 
 /**
@@ -154,9 +210,11 @@ var handleSignedInUser = function(user) {
                             var syncCalendar = function() {
                                 startApp(user);
                             };
-                            document
-                                .getElementById("sync-calendar")
-                                .addEventListener("click", syncCalendar);
+                            let syncButton = document.getElementById(
+                                "sync-calendar"
+                            );
+                            syncButton.addEventListener("click", syncCalendar);
+                            syncButton.removeAttribute("disabled");
                         });
                 }
             });
