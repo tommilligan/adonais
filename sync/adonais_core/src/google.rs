@@ -6,6 +6,7 @@ pub struct Time {
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Event {
+    pub id: String,
     pub start: Time,
     pub end: Time,
     pub summary: String,

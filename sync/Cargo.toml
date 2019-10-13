@@ -4,3 +4,7 @@ members = [
     "adonais_core",
     "adonais_sync",
 ]
+
+[profile.release]
+lto = true
+opt-level = "z"
