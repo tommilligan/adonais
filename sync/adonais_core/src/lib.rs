@@ -51,6 +51,8 @@ impl TryFrom<keats::Event> for Event {
     type Error = chrono::ParseError;
 
     fn try_from(event: keats::Event) -> Result<Self, Self::Error> {
+        // Timezones! Parse the date and time given a naive London times
+        // then convert everything to FixedOffset for consistency.
         let date = NaiveDate::parse_from_str(&event.date, "%Y-%m-%dT%H:%M:%S")?;
         let start_time = NaiveTime::parse_from_str(&event.start_time, "%H:%M")?;
         let end_time = NaiveTime::parse_from_str(&event.end_time, "%H:%M")?;
@@ -64,12 +66,16 @@ impl TryFrom<keats::Event> for Event {
             .latest()
             .expect("End time invalid.")
             .with_timezone(&FixedOffset::east(0));
+
+        // There's some funky formatting of which groups an event is for
+        let groups = keats::parse_group_range(&event.groups.clone().unwrap_or("".to_owned()));
+
         let inner = EventInner {
             start,
             end,
             code: event.code,
-            groups_raw: event.groups.clone(),
-            groups: keats::parse_group_range(&event.groups.unwrap_or("".to_owned())),
+            groups_raw: event.groups,
+            groups,
             title: event.title,
             type_: event.type_,
             staff: event.staff,
@@ -77,6 +83,8 @@ impl TryFrom<keats::Event> for Event {
             campus: event.campus,
         };
 
+        // We need a unique id for each event. Hash everything and convert it to
+        // a valid Google Event id format.
         let mut hasher = SipHasher24::new();
         inner.hash(&mut hasher);
         let id = BASE32HEX.encode(&hasher.finish().to_le_bytes());
@@ -90,8 +98,8 @@ impl Event {
         self.inner.groups.contains(&group)
     }
 
-    fn in_time_range(&self, min: &DateTime<FixedOffset>, max: &DateTime<FixedOffset>) -> bool {
-        &self.inner.end > min && &self.inner.start < max
+    fn is_after(&self, min: &DateTime<FixedOffset>) -> bool {
+        &self.inner.end > min
     }
 }
 
@@ -141,26 +149,37 @@ impl From<Event> for google::Event {
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct CalendarUpdateRequest {
+    /// Ids of existing events in the Google calendar.
+    /// If a matching keats event is not found, they will be deleted.
     pub existing: Vec<String>,
+    /// New events obtained from the KEATS API.
+    /// These will overwrite Google events if they are updated.
     pub new: Vec<keats::Event>,
+    /// Only return events relevant to this group.
     pub group: u32,
+    /// The `timeMin` argument passed to the [Google Events List API](https://developers.google.com/calendar/v3/reference/events/list)
+    /// when generating the list of `existing` ids. Any `new` events before this time will be filtered out.
     pub time_min: DateTime<FixedOffset>,
-    pub time_max: DateTime<FixedOffset>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct CalendarUpdateResponse {
+    /// New Google Events that should be created.
     pub created: Vec<google::Event>,
+    /// Existing Google Events that should be deleted.
     pub deleted: Vec<String>,
 }
 
-pub fn calclate_calendar_update(request: CalendarUpdateRequest) -> CalendarUpdateResponse {
+/// The main entrypoint of the library.
+///
+/// Given information from both the KEATS and Google APIs, calculates the diff
+/// that needs to be applied to update the calendar successfully.
+pub fn calculate_calendar_update(request: CalendarUpdateRequest) -> CalendarUpdateResponse {
     let CalendarUpdateRequest {
         existing,
         new,
         group,
         time_min,
-        time_max,
     } = request;
 
     let events: Vec<Event> = new
@@ -171,7 +190,7 @@ pub fn calclate_calendar_update(request: CalendarUpdateRequest) -> CalendarUpdat
     // Filtered down to only events for the user now
     let group_events: Vec<Event> = events
         .into_iter()
-        .filter(|e| e.has_group(group) && e.in_time_range(&time_min, &time_max))
+        .filter(|e| e.has_group(group) && e.is_after(&time_min))
         .collect();
     let new_ids = group_events.iter().map(|e| e.id.clone()).collect();
 
@@ -201,9 +220,9 @@ pub fn calclate_calendar_update(request: CalendarUpdateRequest) -> CalendarUpdat
 }
 
 #[wasm_bindgen]
-pub fn keats_to_google_calendar_events(js_value: &JsValue) -> JsValue {
+pub fn calculate_calendar_update_wasm(js_value: &JsValue) -> JsValue {
     let request = js_value.into_serde().unwrap();
-    let response = calclate_calendar_update(request);
+    let response = calculate_calendar_update(request);
     JsValue::from_serde(&response).unwrap()
 }
 
@@ -346,18 +365,22 @@ mod tests {
         // - "existing1" has been deleted
         // - "New Event" is created with a new id
         assert_eq!(
-            calclate_calendar_update(CalendarUpdateRequest {
+            calculate_calendar_update(CalendarUpdateRequest {
                 new: vec![
                     BASE_KEATS_EVENT.clone(),
                     keats::Event {
                         title: Some("New Event".to_owned()),
                         ..BASE_KEATS_EVENT.clone()
                     },
+                    keats::Event {
+                        title: Some("Past Event (that should be filtered out".to_owned()),
+                        date: "1993-11-12T00:00:00".to_owned(),
+                        ..BASE_KEATS_EVENT.clone()
+                    },
                 ],
                 existing: vec![BASE_GOOGLE_EVENT.id.clone(), "existing1".to_string(),],
                 group: 253,
                 time_min: DateTime::parse_from_rfc3339("2017-01-01T00:00:00+00:00").unwrap(),
-                time_max: DateTime::parse_from_rfc3339("2019-12-01T00:00:00+00:00").unwrap(),
             }),
             CalendarUpdateResponse {
                 created: vec![google::Event {

@@ -4,6 +4,7 @@ pub struct Time {
     pub datetime: String,
 }
 
+/// A Google Event resource for insertion, [as specified in the Calendar API](https://developers.google.com/calendar/v3/reference/events/insert)
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Event {
     pub id: String,

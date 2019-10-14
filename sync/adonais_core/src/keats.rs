@@ -1,6 +1,7 @@
 pub static URI: &str =
     "https://lsm-education.kcl.ac.uk/apicommonstring/api/values/Mod-Module.5MBBSStage2";
 
+/// An event as returned from the KEATS API.
 #[derive(Clone, Deserialize, Debug, PartialEq)]
 pub struct Event {
     #[serde(rename(deserialize = "C"))]
@@ -25,6 +26,9 @@ pub struct Event {
     pub campus: Option<String>,
 }
 
+/// Parse a collection of ints of the form `1-3, 5`.
+/// Each item consists of a range or an int. These are parsed and concatenated.
+/// If no range is given or half the range is missing, default to 200-300.
 pub fn parse_group_range(range: &str) -> Vec<u32> {
     let mut items: Vec<u32> = vec![];
     for part in range.split(',') {
