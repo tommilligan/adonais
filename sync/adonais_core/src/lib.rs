@@ -21,7 +21,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
-use chrono::{NaiveDate, NaiveTime, TimeZone};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime, TimeZone};
 use chrono_tz::Europe::London;
 use data_encoding::BASE32HEX;
 use siphasher::sip::SipHasher24;
@@ -29,9 +29,8 @@ use wasm_bindgen::prelude::*;
 
 #[derive(Clone, Debug, Hash, PartialEq)]
 pub struct EventInner {
-    pub date: NaiveDate,
-    pub start_time: NaiveTime,
-    pub end_time: NaiveTime,
+    pub start: DateTime<FixedOffset>,
+    pub end: DateTime<FixedOffset>,
     pub code: String,
     pub groups: Vec<u32>,
     pub groups_raw: Option<String>,
@@ -52,10 +51,22 @@ impl TryFrom<keats::Event> for Event {
     type Error = chrono::ParseError;
 
     fn try_from(event: keats::Event) -> Result<Self, Self::Error> {
+        let date = NaiveDate::parse_from_str(&event.date, "%Y-%m-%dT%H:%M:%S")?;
+        let start_time = NaiveTime::parse_from_str(&event.start_time, "%H:%M")?;
+        let end_time = NaiveTime::parse_from_str(&event.end_time, "%H:%M")?;
+        let start = London
+            .from_local_datetime(&date.and_time(start_time))
+            .earliest()
+            .expect("Start time invalid.")
+            .with_timezone(&FixedOffset::east(0));
+        let end = London
+            .from_local_datetime(&date.and_time(end_time))
+            .latest()
+            .expect("End time invalid.")
+            .with_timezone(&FixedOffset::east(0));
         let inner = EventInner {
-            date: NaiveDate::parse_from_str(&event.date, "%Y-%m-%dT%H:%M:%S")?,
-            start_time: NaiveTime::parse_from_str(&event.start_time, "%H:%M")?,
-            end_time: NaiveTime::parse_from_str(&event.end_time, "%H:%M")?,
+            start,
+            end,
             code: event.code,
             groups_raw: event.groups.clone(),
             groups: keats::parse_group_range(&event.groups.unwrap_or("".to_owned())),
@@ -78,6 +89,10 @@ impl Event {
     fn has_group(&self, group: u32) -> bool {
         self.inner.groups.contains(&group)
     }
+
+    fn in_time_range(&self, min: &DateTime<FixedOffset>, max: &DateTime<FixedOffset>) -> bool {
+        &self.inner.end > min && &self.inner.start < max
+    }
 }
 
 fn join_some_strings(some_strings: Vec<Option<String>>, separator: &str) -> String {
@@ -94,14 +109,6 @@ fn join_some_strings(some_strings: Vec<Option<String>>, separator: &str) -> Stri
 impl From<Event> for google::Event {
     fn from(event: Event) -> google::Event {
         let Event { id, inner } = event;
-        let start_datetime = London
-            .from_local_datetime(&inner.date.and_time(inner.start_time))
-            .unwrap()
-            .to_rfc3339();
-        let end_datetime = London
-            .from_local_datetime(&inner.date.and_time(inner.end_time))
-            .unwrap()
-            .to_rfc3339();
 
         let location = join_some_strings(vec![inner.room, inner.campus], ", ");
         let summary = join_some_strings(
@@ -121,10 +128,10 @@ impl From<Event> for google::Event {
             id,
             summary,
             start: google::Time {
-                datetime: start_datetime,
+                datetime: inner.start.to_rfc3339(),
             },
             end: google::Time {
-                datetime: end_datetime,
+                datetime: inner.end.to_rfc3339(),
             },
             description,
             location,
@@ -137,6 +144,8 @@ pub struct CalendarUpdateRequest {
     pub existing: Vec<String>,
     pub new: Vec<keats::Event>,
     pub group: u32,
+    pub time_min: DateTime<FixedOffset>,
+    pub time_max: DateTime<FixedOffset>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -150,6 +159,8 @@ pub fn calclate_calendar_update(request: CalendarUpdateRequest) -> CalendarUpdat
         existing,
         new,
         group,
+        time_min,
+        time_max,
     } = request;
 
     let events: Vec<Event> = new
@@ -158,7 +169,10 @@ pub fn calclate_calendar_update(request: CalendarUpdateRequest) -> CalendarUpdat
         .collect();
 
     // Filtered down to only events for the user now
-    let group_events: Vec<Event> = events.into_iter().filter(|e| e.has_group(group)).collect();
+    let group_events: Vec<Event> = events
+        .into_iter()
+        .filter(|e| e.has_group(group) && e.in_time_range(&time_min, &time_max))
+        .collect();
     let new_ids = group_events.iter().map(|e| e.id.clone()).collect();
 
     let mut new_events_by_id: HashMap<String, Event> = group_events
@@ -215,11 +229,10 @@ mod tests {
         };
         static ref BASE_EVENT: Event = {
             Event {
-                id: "KC09GO7M9CJ2A===".to_owned(),
+                id: "M9P6FJN06OLGM===".to_owned(),
                 inner: EventInner {
-                    date: NaiveDate::from_ymd(2017, 11, 12),
-                    start_time: NaiveTime::from_hms(14, 03, 00),
-                    end_time: NaiveTime::from_hms(15, 00, 00),
+                    start: DateTime::parse_from_rfc3339("2017-11-12T14:03:00+00:00").unwrap(),
+                    end: DateTime::parse_from_rfc3339("2017-11-12T15:00:00+00:00").unwrap(),
                     code: "CODE001".to_owned(),
                     groups: vec![253, 254, 255, 256],
                     groups_raw: Some("253-256".to_owned()),
@@ -233,7 +246,7 @@ mod tests {
         };
         static ref BASE_GOOGLE_EVENT: google::Event = {
             google::Event {
-                id: "KC09GO7M9CJ2A===".to_owned(),
+                id: "M9P6FJN06OLGM===".to_owned(),
                 start: google::Time {
                     datetime: "2017-11-12T14:03:00+00:00".to_owned(),
                 },
@@ -261,14 +274,12 @@ mod tests {
                 groups: None,
                 ..BASE_KEATS_EVENT.clone()
             })
-            .unwrap(),
-            Event {
-                id: "BA9N5STJGV3A2===".to_owned(),
-                inner: EventInner {
-                    groups: (200..300).collect(),
-                    groups_raw: None,
-                    ..BASE_EVENT.inner.clone()
-                }
+            .unwrap()
+            .inner,
+            EventInner {
+                groups: (200..300).collect(),
+                groups_raw: None,
+                ..BASE_EVENT.inner.clone()
             }
         );
 
@@ -293,7 +304,8 @@ mod tests {
             google::Event::from(Event {
                 id: "id1".to_owned(),
                 inner: EventInner {
-                    date: NaiveDate::from_ymd(2019, 08, 12),
+                    start: DateTime::parse_from_rfc3339("2019-08-12T14:03:00+01:00").unwrap(),
+                    end: DateTime::parse_from_rfc3339("2019-08-12T15:00:00+01:00").unwrap(),
                     ..BASE_EVENT.inner.clone()
                 }
             }),
@@ -343,11 +355,13 @@ mod tests {
                     },
                 ],
                 existing: vec![BASE_GOOGLE_EVENT.id.clone(), "existing1".to_string(),],
-                group: 253
+                group: 253,
+                time_min: DateTime::parse_from_rfc3339("2017-01-01T00:00:00+00:00").unwrap(),
+                time_max: DateTime::parse_from_rfc3339("2019-12-01T00:00:00+00:00").unwrap(),
             }),
             CalendarUpdateResponse {
                 created: vec![google::Event {
-                    id: "C26RHTLH43FEE===".to_owned(),
+                    id: "E0KO7T238TM42===".to_owned(),
                     summary: "New Event, 253-256".to_owned(),
                     ..BASE_GOOGLE_EVENT.clone()
                 }],
