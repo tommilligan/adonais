@@ -1,0 +1,6 @@
+#!/bin/bash
+# Generate wasm files from rust library and add them to the js codebase
+
+set -ex
+
+wasm-pack build --target web --out-dir ../../ui/public/pkg sync/adonais_core

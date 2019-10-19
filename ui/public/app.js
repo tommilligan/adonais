@@ -1,4 +1,4 @@
-import init, { keats_to_google_calendar_events } from "./pkg/adonais_core.js";
+import init, { calculate_calendar_update_wasm } from "./pkg/adonais_core.js";
 
 /*
  * Copyright 2016 Google Inc. All Rights Reserved.
@@ -67,11 +67,12 @@ ui.disableAutoSignIn();
 
 const URI = "https://europe-west2-adonais-a3bf8.cloudfunctions.net/proxy-keats";
 
+/**
+ * Fetches keats events in JSON format from the API
+ */
 async function fetchEvents() {
     const response = await fetch(URI);
-    const keatsJson = await response.json();
-    const googleJson = keats_to_google_calendar_events(keatsJson);
-    return googleJson;
+    return response.json();
 }
 
 async function insertCalendarAndSaveId(user_document_ref) {
@@ -124,51 +125,47 @@ async function startApp(user) {
         .doc(user.user.uid);
 
     let calendar_id = await getCalendarId(user_document_ref);
-    const googleEvents = await fetchEvents();
+    const keatsEvents = await fetchEvents();
 
-    // let's only concern ourselves with now
-    // (new Date()).toISOString()
-    //
-    // and sync the next three months of data
-    // we can filter the json event with a simple string startswith
-    //
-    //
-    // then, list all events in the calendar from now forwards
-    // delete them (batches of 50
-    //
-    //
-    // then, replace with the next three onths worth of events
-    // simple!
+    let timeMin = new Date();
+    timeMin.setMonth(timeMin.getMonth() - 3);
+    timeMin = timeMin.toISOString();
 
-    //let pageToken = null;
-    //do {
-    //events = service.events().list('primary').setPageToken(pageToken).execute();
+    let googleEvents = await gapi.client.calendar.events.list({
+        calendarId: calendar_id,
+        maxResults: 2500,
+        timeMin: timeMin
+    });
+    console.log(googleEvents);
+    let existingEventIds = googleEvents.result.items.map(event => event.id);
 
-    //// list all events in the calendar, stargin
-
-    //gapi.client.calendar.events.list({
-    //calendarId: calendar_id,
-    //maxResults:
-    //})
-    //List<Event> items = events.getItems();
-    //for (Event event : items) {
-    //System.out.println(event.getSummary());
-    //}
-    //pageToken = events.getNextPageToken();
-    //} while (pageToken != null);
-    //do {
-    //text += "The number is " + i;
-    //i++;
-    //}
-    //while (i < 5);
+    let syncRequest = {
+        new: keatsEvents,
+        existing: existingEventIds,
+        group: 253,
+        time_min: timeMin
+    };
+    console.log(syncRequest);
+    let syncResponse = calculate_calendar_update_wasm(syncRequest);
+    console.log(syncResponse);
 
     const create_batch = gapi.client.newBatch();
-    const test_events = googleEvents.slice(0, 3);
-    test_events.forEach(function(test_event) {
+
+    syncResponse.deleted.forEach(function(eventId) {
+        create_batch.add(
+            gapi.client.calendar.events.delete({
+                calendarId: calendar_id,
+                eventId: eventId
+            })
+        );
+    });
+
+    const created = syncResponse.created.slice(0, 3);
+    created.forEach(function(event) {
         create_batch.add(
             gapi.client.calendar.events.insert({
                 calendarId: calendar_id,
-                resource: test_event
+                resource: event
             })
         );
     });

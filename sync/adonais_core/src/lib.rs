@@ -87,7 +87,10 @@ impl TryFrom<keats::Event> for Event {
         // a valid Google Event id format.
         let mut hasher = SipHasher24::new();
         inner.hash(&mut hasher);
-        let id = BASE32HEX.encode(&hasher.finish().to_le_bytes());
+        let id = BASE32HEX
+            .encode(&hasher.finish().to_le_bytes())
+            .to_lowercase()
+            .replace("=", "");
 
         Ok(Event { id, inner })
     }
@@ -248,7 +251,7 @@ mod tests {
         };
         static ref BASE_EVENT: Event = {
             Event {
-                id: "M9P6FJN06OLGM===".to_owned(),
+                id: "m9p6fjn06olgm".to_owned(),
                 inner: EventInner {
                     start: DateTime::parse_from_rfc3339("2017-11-12T14:03:00+00:00").unwrap(),
                     end: DateTime::parse_from_rfc3339("2017-11-12T15:00:00+00:00").unwrap(),
@@ -265,7 +268,7 @@ mod tests {
         };
         static ref BASE_GOOGLE_EVENT: google::Event = {
             google::Event {
-                id: "M9P6FJN06OLGM===".to_owned(),
+                id: "m9p6fjn06olgm".to_owned(),
                 start: google::Time {
                     datetime: "2017-11-12T14:03:00+00:00".to_owned(),
                 },
@@ -384,7 +387,7 @@ mod tests {
             }),
             CalendarUpdateResponse {
                 created: vec![google::Event {
-                    id: "E0KO7T238TM42===".to_owned(),
+                    id: "e0ko7t238tm42".to_owned(),
                     summary: "New Event, 253-256".to_owned(),
                     ..BASE_GOOGLE_EVENT.clone()
                 }],
