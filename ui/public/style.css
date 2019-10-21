@@ -51,3 +51,11 @@ body {
     width: 40px;
   }
 }
+
+#user-log {
+  font-family: monospace;
+  text-align: left;
+  /* hanging indent */
+  text-indent: -1em;
+  padding-left: 1em;
+}

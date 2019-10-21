@@ -13,6 +13,25 @@ function chunk(array, chunkSize) {
     return chunks;
 }
 
+/**
+ * User visible log
+ */
+function userLog(message) {
+    var node = document.createElement("div");
+    node.appendChild(document.createTextNode(message));
+    document.getElementById("user-log").appendChild(node);
+}
+
+/**
+ * Clear user visible log
+ */
+function userLogClear() {
+    const myNode = document.getElementById("user-log");
+    while (myNode.firstChild) {
+        myNode.removeChild(myNode.firstChild);
+    }
+}
+
 /*
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
@@ -89,13 +108,14 @@ async function fetchEvents() {
 }
 
 async function insertCalendarAndSaveId(user_document_ref) {
-    console.log("Inserting new calendar");
+    userLog("Inserting new calendar");
     let response = await gapi.client.calendar.calendars.insert({
         summary: "King's (via adonais)",
         timeZone: "Europe/London"
     });
     let calendar_id = response.result.id;
     user_document_ref.set({ calendar_id: calendar_id });
+    userLog("Saved calendar id: " + calendar_id);
     return calendar_id;
 }
 
@@ -109,14 +129,14 @@ async function getCalendarId(user_document_ref) {
     // if it turns out not to exist, the user deleted it, just create another
 
     if (calendar_id) {
-        console.log("Already created calendar " + calendar_id);
+        userLog("Loading existing calendar: " + calendar_id);
         try {
             await gapi.client.calendar.calendars.get({
                 calendarId: calendar_id
             });
         } catch (error) {
             if (error.status === 404) {
-                console.log("Missing calendar, create again");
+                userLog("Existing calender missing");
                 calendar_id = await insertCalendarAndSaveId(user_document_ref);
             } else {
                 throw error;
@@ -129,9 +149,10 @@ async function getCalendarId(user_document_ref) {
 }
 
 async function startApp(user) {
-    console.log("Loading wasm...");
+    userLogClear();
+    userLog("Loading wasm");
     await init();
-    console.log("Starting app...");
+    userLog("Starting sync");
     var user_document_ref = firebase
         .firestore()
         .collection("users")
@@ -139,32 +160,37 @@ async function startApp(user) {
 
     let calendar_id = await getCalendarId(user_document_ref);
     const keatsEvents = await fetchEvents();
+    userLog("Got " + keatsEvents.length + " events from KEATS");
 
     let now = new Date();
     let timeMin = new Date(now.getTime() - MS_WEEK);
-    timeMin = timeMin.toISOString();
 
     let googleEvents = await gapi.client.calendar.events.list({
         calendarId: calendar_id,
         maxResults: 2500,
-        timeMin: timeMin
+        timeMin: timeMin.toISOString()
     });
-    console.log(googleEvents);
     let existingEventIds = googleEvents.result.items.map(event => event.id);
+    userLog("Got " + existingEventIds.length + " events from calendar");
 
+    let group = 253;
     let syncRequest = {
         new: keatsEvents,
         existing: existingEventIds,
-        group: 253,
-        time_min: timeMin
+        group: group,
+        time_min: timeMin.toISOString()
     };
-    console.log(syncRequest);
+    userLog("Calculating diff for group " + group + " after " + timeMin);
     let syncResponse = calculate_calendar_update_wasm(syncRequest);
-    console.log(syncResponse);
 
     const batchSize = 50;
     let batches = [];
 
+    userLog(
+        syncResponse.deleted.length +
+            syncResponse.created.length +
+            " events need update"
+    );
     chunk(syncResponse.deleted, batchSize).forEach(deletedChunk => {
         let batch = gapi.client.newBatch();
         deletedChunk.forEach(function(eventId) {
@@ -191,6 +217,7 @@ async function startApp(user) {
     });
 
     const batch_result = await Promise.all(batches);
+    userLog("Done");
     console.log(batch_result);
 }
 
