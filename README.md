@@ -1,5 +1,7 @@
 # adonais
 
+[![Build Status](https://cloud.drone.io/api/badges/tommilligan/adonais/status.svg)](https://cloud.drone.io/tommilligan/adonais)
+
 ## Aims
 
 - pull schedule data from keats.kcl.ac.uk

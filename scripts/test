@@ -3,4 +3,4 @@
 
 set -ex
 
-cd ui && firebase deploy "$@"
+cargo test --manifest-path sync/adonais_core/Cargo.toml

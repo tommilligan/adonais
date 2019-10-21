@@ -1,0 +1,25 @@
+---
+kind: pipeline
+type: docker
+name: test
+
+steps:
+  - name: test
+    image: rust:1.38.0-slim
+    commands:
+      - scripts/test
+      - scripts/generate
+  - name: deploy
+    image: node:12.12-alpine
+    commands:
+      - yarn global add firebase-tools
+      - scripts/deploy --token "$FIREBASE_TOKEN"
+    when:
+      branch:
+        - master
+trigger:
+  ref:
+    include:
+      - refs/heads/**
+  event:
+    - push
