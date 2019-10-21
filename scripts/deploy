@@ -1,0 +1,6 @@
+#!/bin/bash
+# Generate wasm files from rust library and add them to the js codebase
+
+set -ex
+
+cd ui && firebase deploy
