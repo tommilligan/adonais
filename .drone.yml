@@ -13,6 +13,9 @@ steps:
       - scripts/generate
   - name: deploy
     image: node:12.12-alpine
+    environment:
+      FIREBASE_TOKEN:
+        from_secret: FIREBASE_TOKEN
     commands:
       - yarn global add firebase-tools
       - /bin/ash /drone/src/scripts/deploy --token "$FIREBASE_TOKEN"
