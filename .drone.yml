@@ -5,16 +5,17 @@ name: test
 
 steps:
   - name: test
-    image: rust:1.38.0-slim
+    image: rust:1.38.0
     commands:
       - scripts/test
+      - apt-get install -y libssl-dev
       - cargo install wasm-pack
       - scripts/generate
   - name: deploy
     image: node:12.12-alpine
     commands:
       - yarn global add firebase-tools
-      - scripts/deploy --token "$FIREBASE_TOKEN"
+      - /bin/ash /drone/src/scripts/deploy --token "$FIREBASE_TOKEN"
     when:
       branch:
         - master

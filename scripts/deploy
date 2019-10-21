@@ -2,5 +2,6 @@
 # Generate wasm files from rust library and add them to the js codebase
 
 set -ex
+cd "$(dirname "$0")"
 
-cd ui && firebase deploy "$@"
+cd ../ui && firebase deploy "$@"
