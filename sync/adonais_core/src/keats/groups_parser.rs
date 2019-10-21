@@ -62,8 +62,7 @@ fn list(input: &str) -> IResult<&str, Vec<Part>> {
 /// Each item consists of a range or an int. These are parsed and concatenated.
 /// If invalid syntax, default to 200 - 299.
 pub fn parse_group_range(range: &str) -> Vec<u32> {
-    // TODO FIXME how to assert we've finished the parsing string here?
-    let (leftover, mut parts) = list(range).unwrap_or((
+    let (leftover, mut parts) = list(range.trim()).unwrap_or((
         "",
         vec![Part::Range(Range {
             start: 200,
@@ -179,5 +178,7 @@ mod tests {
             parse_group_range("121,123 - 125   , 121"),
             vec![121, 123, 124, 125],
         );
+        // Trailing whitespace is bad, make sure to trim it
+        assert_eq!(parse_group_range("261 "), vec![261]);
     }
 }
