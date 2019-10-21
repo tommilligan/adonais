@@ -1,5 +1,4 @@
-pub static URI: &str =
-    "https://lsm-education.kcl.ac.uk/apicommonstring/api/values/Mod-Module.5MBBSStage2";
+pub mod groups_parser;
 
 /// An event as returned from the KEATS API.
 #[derive(Clone, Deserialize, Debug, PartialEq)]
@@ -24,24 +23,6 @@ pub struct Event {
     pub room: Option<String>,
     #[serde(rename(deserialize = "CP"))]
     pub campus: Option<String>,
-}
-
-/// Parse a collection of ints of the form `1-3, 5`.
-/// Each item consists of a range or an int. These are parsed and concatenated.
-/// If no range is given or half the range is missing, default to 200-300.
-pub fn parse_group_range(range: &str) -> Vec<u32> {
-    let mut items: Vec<u32> = vec![];
-    for part in range.split(',') {
-        let x: Vec<&str> = part.split('-').map(|s| s.trim()).collect();
-        // unwrappping here is fine, we're guaranteed to have one elemnt
-        // from the split above
-        let range_start: u32 = x.first().unwrap().parse().unwrap_or(200);
-        let range_end: u32 = x.last().unwrap().parse().unwrap_or(299) + 1;
-        items.extend(range_start..range_end);
-    }
-    items.sort();
-    items.dedup();
-    items
 }
 
 #[cfg(test)]
@@ -82,26 +63,5 @@ mod tests {
                 campus: Some("Guy's".to_owned()),
             }
         )
-    }
-
-    #[test]
-    fn test_parse_group_range() {
-        let all_groups: Vec<u32> = (200..300).collect();
-
-        // Single item
-        assert_eq!(parse_group_range("0"), vec![0]);
-        // Range of items, inclusive
-        assert_eq!(parse_group_range("0-2"), vec![0, 1, 2]);
-        // Multiple spec, separted by comma
-        assert_eq!(parse_group_range("0, 7"), vec![0, 7]);
-        assert_eq!(parse_group_range("0, 7-10"), vec![0, 7, 8, 9, 10]);
-
-        // Invalid spec defaults to 200 (low) and 299 (high)
-        assert_eq!(parse_group_range("0, 297-spam"), vec![0, 297, 298, 299]);
-        assert_eq!(parse_group_range("0, spam-201"), vec![0, 200, 201]);
-
-        // When in doubt, default to everyone
-        assert_eq!(parse_group_range(""), all_groups);
-        assert_eq!(parse_group_range("250, spam"), all_groups);
     }
 }

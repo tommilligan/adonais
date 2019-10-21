@@ -1,5 +1,6 @@
 extern crate chrono;
 extern crate chrono_tz;
+extern crate nom;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -68,7 +69,8 @@ impl TryFrom<keats::Event> for Event {
             .with_timezone(&FixedOffset::east(0));
 
         // There's some funky formatting of which groups an event is for
-        let groups = keats::parse_group_range(&event.groups.clone().unwrap_or("".to_owned()));
+        let groups =
+            keats::groups_parser::parse_group_range(&event.groups.clone().unwrap_or("".to_owned()));
 
         let inner = EventInner {
             start,
