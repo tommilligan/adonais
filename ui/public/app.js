@@ -1,5 +1,18 @@
 import init, { calculate_calendar_update_wasm } from "./pkg/adonais_core.js";
 
+const MS_WEEK = 1000 * 60 * 60 * 24 * 7;
+
+/**
+ * Split an array into smaller arrays of length chunkSize.
+ */
+function chunk(array, chunkSize) {
+    const chunks = [];
+    for (let i = 0; i < array.length; i += chunkSize) {
+        chunks.push(array.slice(i, i + chunkSize));
+    }
+    return chunks;
+}
+
 /*
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
@@ -127,8 +140,8 @@ async function startApp(user) {
     let calendar_id = await getCalendarId(user_document_ref);
     const keatsEvents = await fetchEvents();
 
-    let timeMin = new Date();
-    timeMin.setMonth(timeMin.getMonth() - 3);
+    let now = new Date();
+    let timeMin = new Date(now.getTime() - MS_WEEK);
     timeMin = timeMin.toISOString();
 
     let googleEvents = await gapi.client.calendar.events.list({
@@ -149,27 +162,35 @@ async function startApp(user) {
     let syncResponse = calculate_calendar_update_wasm(syncRequest);
     console.log(syncResponse);
 
-    const create_batch = gapi.client.newBatch();
+    const batchSize = 50;
+    let batches = [];
 
-    syncResponse.deleted.forEach(function(eventId) {
-        create_batch.add(
-            gapi.client.calendar.events.delete({
-                calendarId: calendar_id,
-                eventId: eventId
-            })
-        );
+    chunk(syncResponse.deleted, batchSize).forEach(deletedChunk => {
+        let batch = gapi.client.newBatch();
+        deletedChunk.forEach(function(eventId) {
+            batch.add(
+                gapi.client.calendar.events.delete({
+                    calendarId: calendar_id,
+                    eventId: eventId
+                })
+            );
+        });
+        batches.push(batch);
+    });
+    chunk(syncResponse.created, batchSize).forEach(createdChunk => {
+        let batch = gapi.client.newBatch();
+        createdChunk.forEach(function(event) {
+            batch.add(
+                gapi.client.calendar.events.insert({
+                    calendarId: calendar_id,
+                    resource: event
+                })
+            );
+        });
+        batches.push(batch);
     });
 
-    const created = syncResponse.created.slice(0, 3);
-    created.forEach(function(event) {
-        create_batch.add(
-            gapi.client.calendar.events.insert({
-                calendarId: calendar_id,
-                resource: event
-            })
-        );
-    });
-    const batch_result = await create_batch;
+    const batch_result = await Promise.all(batches);
     console.log(batch_result);
 }
 
