@@ -8,6 +8,7 @@ steps:
     image: rust:1.38.0-slim
     commands:
       - scripts/test
+      - cargo install wasm-pack
       - scripts/generate
   - name: deploy
     image: node:12.12-alpine
