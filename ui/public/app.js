@@ -30,6 +30,10 @@ function userLogClear() {
     while (myNode.firstChild) {
         myNode.removeChild(myNode.firstChild);
     }
+
+    if (myNode.classList.contains("hidden")) {
+        myNode.classList.remove("hidden");
+    }
 }
 
 /*
@@ -55,23 +59,6 @@ function userLogClear() {
  */
 function getUiConfig() {
     return {
-        callbacks: {
-            // Called when the user has been successfully signed in.
-            signInSuccessWithAuthResult: function(authResult, redirectUrl) {
-                if (authResult.user) {
-                    handleSignedInUser(authResult.user);
-                }
-                if (authResult.additionalUserInfo) {
-                    document.getElementById(
-                        "is-new-user"
-                    ).textContent = authResult.additionalUserInfo.isNewUser
-                        ? "New User"
-                        : "Existing User";
-                }
-                // Do not redirect.
-                return false;
-            }
-        },
         // Opens IDP Providers sign-in flow in a popup.
         signInFlow: "redirect",
         signInOptions: [
@@ -150,7 +137,7 @@ async function getCalendarId(user_document_ref) {
 
 async function startApp(user) {
     userLogClear();
-    userLog("Loading wasm");
+    userLog("Loading adonais_core Wasm");
     await init();
     userLog("Starting sync");
     var user_document_ref = firebase
@@ -180,7 +167,12 @@ async function startApp(user) {
         group: group,
         time_min: timeMin.toISOString()
     };
-    userLog("Calculating diff for group " + group + " after " + timeMin);
+    userLog(
+        "Calculating diff for group " +
+            group +
+            " after " +
+            timeMin.toISOString()
+    );
     let syncResponse = calculate_calendar_update_wasm(syncRequest);
 
     const batchSize = 50;
@@ -272,7 +264,6 @@ var handleSignedInUser = function(user) {
     document.getElementById("user-signed-out").style.display = "none";
     document.getElementById("name").textContent = user.displayName;
     document.getElementById("email").textContent = user.email;
-    document.getElementById("phone").textContent = user.phoneNumber;
     if (user.photoURL) {
         var photoURL = user.photoURL;
         // Append size to the photo URL for Google hosted images to avoid requesting

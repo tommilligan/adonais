@@ -1,55 +1,101 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8">
-    <title>adonais</title>
-    <link rel="manifest" href="manifest.json">
+<html lang="en">
+<head>
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+  <title>adonais</title>
+  <meta name="description" content="KEATS to Google Calendar integration">
+  <meta name="author" content="Tom Milligan">
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- FONT
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link type="text/css" rel="stylesheet" href="css/normalize.css">
+  <link type="text/css" rel="stylesheet" href="css/skeleton.css">
+  <link type="text/css" rel="stylesheet" href="css/adonais.css">
+  <link type="text/css" rel="stylesheet" href="css/style.css" rel="stylesheet "media="screen" />
+  <link type="text/css" rel="stylesheet" href="https://cdn.firebase.com/libs/firebaseui/4.1.0/firebaseui.css" />
+
+  <!-- Favicon
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <!-- <link rel="icon" type="image/png" href="images/favicon.png"> -->
+
+  <link rel="manifest" href="manifest.json">
+
+  <!-- JS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
     <script src="https://www.gstatic.com/firebasejs/6.0.1/firebase.js"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
-    <link href="style.css" rel="stylesheet" type="text/css" media="screen" />
     <script src="https://cdn.firebase.com/libs/firebaseui/4.1.0/firebaseui.js"></script>
-    <link type="text/css" rel="stylesheet" href="https://cdn.firebase.com/libs/firebaseui/4.1.0/firebaseui.css" />
-    <link type="text/css" rel="stylesheet" href="dist/firebaseui.css" />
     <script src="https://apis.google.com/js/api.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-  </head>
-  <body>
-    <div id="container">
-      <h3>adonais</h3>
+
+</head>
+<body>
+
+  <!-- Primary Page Layout
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <div class="container">
+    <div class="row" style="text-align: center">
+      <div style="margin-top: 25%">
+        <h1>adonais</h1>
+      </div>
+
       <div id="loading">Loading...</div>
+
       <div id="loaded" class="hidden">
         <div id="main">
+
           <div id="user-signed-in" class="hidden">
-            <div id="user-info">
-              <div id="photo-container">
-                <img id="photo">
-              </div>
-              <div id="name"></div>
-              <div id="email"></div>
-              <div id="phone"></div>
-              <div id="is-new-user"></div>
-              <div class="clearfix"></div>
+            <div class="row" style="margin: 20px">
+              <button class="button-primary" id="sync-calendar" disabled>Sync calendar now</button>
             </div>
-            <p>
-              <button id="sign-out">Sign Out</button>
+            <div class="row">
+              <div id="user-info">
+                <div id="photo-container">
+                  <img id="photo">
+                </div>
+                <div id="name"></div>
+                <div id="email"></div>
+                <div class="clearfix"></div>
+              </div>
+            </div>
+            <div class="row">
               <button id="delete-account">Delete account</button>
-            </p>
-            <p>
-              <button id="sync-calendar" disabled>Sync calendar now</button>
-            </p>
-            <div id="user-log">
+            </div>
+            <div class="row">
+              <button id="sign-out">Sign Out</button>
+            </div>
+            <div class="row">
+              <div id="user-log" class="prettyprint hidden">
+              </div>
             </div>
           </div>
+
           <div id="user-signed-out" class="hidden">
             <h4>You are signed out.</h4>
             <div id="firebaseui-spa">
               <div id="firebaseui-container"></div>
             </div>
           </div>
+
         </div>
       </div>
+
     </div>
-    <script src="app.js" type="module"></script>
-  </body>
+  </div>
+
+<!-- End Document
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <script src="app.js" type="module"></script>
+</body>
 </html>

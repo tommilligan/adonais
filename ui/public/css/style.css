@@ -1,17 +1,3 @@
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}
-
-#container {
-  max-width: 600px;
-  margin: 0 auto;
-  text-align: center;
-}
-
 .clearfix {
   clear: both;
 }
@@ -21,17 +7,18 @@ body {
 }
 
 #user-info {
-  border: 1px solid #CCC;
+  border: 1px solid #bbb;
   clear: both;
-  margin: 0 auto 20px;
+  margin: 0 auto 10px;
   max-width: 400px;
   padding: 10px;
   text-align: left;
+  border-radius: 4px;
 }
 
 #photo-container {
   background-color: #EEE;
-  border: 1px solid #CCC;
+  border: 1px solid #bbb;
   float: left;
   height: 80px;
   margin-right: 10px;
@@ -52,10 +39,27 @@ body {
   }
 }
 
+button:disabled,
+button[disabled]{
+  border: 1px solid #ccc;
+  background-color: #ccc;
+  color: #666;
+}
+
+.prettyprint {
+  background: #fff;
+  font-family: Menlo, 'Bitstream Vera Sans Mono', 'DejaVu Sans Mono', Monaco, Consolas, monospace;
+  font-size: 1.2rem;
+  padding: 2.5rem 3rem;
+  -webkit-font-smoothing: antialiased; 
+
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  word-break: break-word;
+}
+
 #user-log {
-  font-family: monospace;
   text-align: left;
   /* hanging indent */
   text-indent: -1em;
-  padding-left: 1em;
 }
