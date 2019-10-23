@@ -8,6 +8,9 @@ use nom::{
     IResult,
 };
 
+//#[cfg(feature = "nom")]
+//mod parser_nom;
+
 #[derive(Debug, PartialEq)]
 pub struct Range {
     pub start: u32,
@@ -56,11 +59,8 @@ fn list(input: &str) -> IResult<&str, Vec<Part>> {
     separated_nonempty_list(comma_or_space_delimiter, part)(input)
 }
 
-/// Parse a collection of ints of the form `1-3, 5`.
-/// Each item consists of a range or an int. These are parsed and concatenated.
-/// If invalid syntax, default to 200 - 299.
-pub fn parse_group_range(range: &str) -> Vec<u32> {
-    let (leftover, mut parts) = list(range.trim()).unwrap_or((
+fn tree(input: &str) -> Vec<Part> {
+    let (leftover, mut parts) = list(input.trim()).unwrap_or((
         "",
         vec![Part::Range(Range {
             start: 200,
@@ -72,9 +72,16 @@ pub fn parse_group_range(range: &str) -> Vec<u32> {
             start: 200,
             end: 299,
         })];
-    }
+    };
+    parts
+}
+
+/// Parse a collection of ints of the form `1-3, 5`.
+/// Each item consists of a range or an int. These are parsed and concatenated.
+/// If invalid syntax, default to 200 - 299.
+pub fn parse_group_range(range: &str) -> Vec<u32> {
     let mut items: Vec<u32> = vec![];
-    for part in parts {
+    for part in tree(range) {
         match part {
             Part::Range(Range { start, end }) => items.extend(start..(end + 1)),
             Part::Single(group) => items.push(group),
