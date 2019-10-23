@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while},
@@ -22,7 +20,7 @@ pub enum Part {
     Range(Range),
 }
 
-fn from_str(input: &str) -> Result<u32, std::num::ParseIntError> {
+fn to_u32(input: &str) -> Result<u32, std::num::ParseIntError> {
     input.parse()
 }
 
@@ -30,16 +28,20 @@ fn is_digit(c: char) -> bool {
     c.is_digit(10)
 }
 
-fn range_separator(input: &str) -> IResult<&str, &str> {
+fn dash_delimiter(input: &str) -> IResult<&str, &str> {
     delimited(multispace0, tag("-"), multispace0)(input)
 }
 
+fn comma_or_space_delimiter(input: &str) -> IResult<&str, &str> {
+    alt((delimited(multispace0, tag(","), multispace0), tag(" ")))(input)
+}
+
 fn single(input: &str) -> IResult<&str, u32> {
-    map_res(take_while(is_digit), from_str)(input)
+    map_res(take_while(is_digit), to_u32)(input)
 }
 
 fn range(input: &str) -> IResult<&str, Range> {
-    let (input, (start, _, end)) = tuple((single, range_separator, single))(input)?;
+    let (input, (start, _, end)) = tuple((single, dash_delimiter, single))(input)?;
     Ok((input, Range { start, end }))
 }
 
@@ -50,12 +52,8 @@ fn part(input: &str) -> IResult<&str, Part> {
     ))(input)
 }
 
-fn list_delimiter(input: &str) -> IResult<&str, &str> {
-    alt((delimited(multispace0, tag(","), multispace0), tag(" ")))(input)
-}
-
 fn list(input: &str) -> IResult<&str, Vec<Part>> {
-    separated_nonempty_list(list_delimiter, part)(input)
+    separated_nonempty_list(comma_or_space_delimiter, part)(input)
 }
 
 /// Parse a collection of ints of the form `1-3, 5`.
@@ -89,6 +87,8 @@ pub fn parse_group_range(range: &str) -> Vec<u32> {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Debug;
+
     use super::*;
 
     fn assert_eq_and_complete<T: Debug + PartialEq, E: Debug + PartialEq>(
