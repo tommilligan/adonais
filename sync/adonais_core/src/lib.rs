@@ -1,12 +1,5 @@
-extern crate chrono;
-extern crate chrono_tz;
-extern crate nom;
-extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_json;
-extern crate siphasher;
-extern crate wasm_bindgen;
 
 #[cfg(test)]
 #[macro_use]
