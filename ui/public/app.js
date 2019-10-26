@@ -72,9 +72,9 @@ function getUiConfig() {
             }
         ],
         // Terms of service url.
-        tosUrl: "https://www.google.com",
+        tosUrl: "/tos.html",
         // Privacy policy url.
-        privacyPolicyUrl: "https://www.google.com",
+        privacyPolicyUrl: "/privacy.html",
         credentialHelper: firebaseui.auth.CredentialHelper.ACCOUNT_CHOOSER_COM
     };
 }
