@@ -8,7 +8,7 @@ KEATS to Google Calendar integration.
 
 [Use it here!](https://adonais.tommilligan.net)
 
-`adonais` takes publicly accessible data from KEATS, transforms it, then uploads it to a new calendar in your account.
+`adonais` takes publicly accessible data from [KEATS](https://keats.kcl.ac.uk), transforms it, then uploads it to a new calendar in your account.
 
 - Login with your Google Account
 - Give `adonais` permission to manage your calendar data
