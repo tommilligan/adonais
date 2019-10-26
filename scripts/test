@@ -4,3 +4,4 @@
 set -ex
 
 cargo test --manifest-path sync/adonais_core/Cargo.toml
+cargo test --manifest-path sync/adonais_core/Cargo.toml --no-default-features --features parser_pest

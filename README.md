@@ -36,3 +36,35 @@ Keys are always present, missing data is represented by `null`s.
 
 Group 253
 Calendar name: GKT Year 2
+
+## Parsers
+
+Unexpectedly, one of the more challenging parts was parsing the `G` field from the KEATS API.
+
+This corresponds to `groups` an event is for. The following are all valid examples:
+
+- ``: empty string implies all groups, `[200, 201, ..., 299]`
+- `200`: a single group, `[200]`
+- `200, 210 220`: several single groups, `[200, 210, 220]`
+  - delimiter may be spaces, comma or a combination of both
+- `210 - 212, 217-218`: a range of groups (inclusive), `[210, 211, 212, 217, 218]`
+  - delimiter dash, with optional spaces
+- `3 7-9, 10`: combinations of the above, `[3, 7, 8, 9, 10]`
+
+This turns out to be too complex for regex parsing, so...
+
+### nom
+
+- fairly verbose. Many function definitions
+- small units of grammar are easily testable
+- composites nicely together
+- mildly confusing documentation at first glance
+
+### pest
+
+- compact grammar
+- macro based
+- parts are not as easily testable
+- lots of unwrpping due to grammar structures not testable by the compiler
+- smaller `Pair` units are based on token sequences, not rust structs, making parsing less readable
+- cute logo

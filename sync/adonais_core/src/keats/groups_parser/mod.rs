@@ -1,8 +1,12 @@
 #[cfg(feature = "parser_nom")]
 mod parser_nom;
+#[cfg(feature = "parser_pest")]
+mod parser_pest;
 
 #[cfg(feature = "parser_nom")]
 use parser_nom::tree;
+#[cfg(feature = "parser_pest")]
+use parser_pest::tree;
 
 #[derive(Debug, PartialEq)]
 pub struct Range {
@@ -19,6 +23,10 @@ pub enum Part {
 /// Parse a collection of ints of the form `1-3, 5`.
 /// If invalid syntax, default to 200 - 299.
 pub fn parse_group_range(range: &str) -> Vec<u32> {
+    if range.len() == 0 {
+        return (200..300).collect();
+    }
+
     let mut items: Vec<u32> = vec![];
     for part in tree(range) {
         match part {

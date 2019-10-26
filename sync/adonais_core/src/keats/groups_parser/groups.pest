@@ -1,0 +1,6 @@
+WHITESPACE = _{ " " }
+single = { ASCII_DIGIT+ }
+range = { single ~ "-" ~ single }
+list = {
+    (( range | single ) ~ ","?)*
+}
