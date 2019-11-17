@@ -16,7 +16,7 @@ serde = "1.0.101"
 serde_derive = "1.0.101"
 serde_json = "1.0.41"
 siphasher = "0.3.1"
-wasm-bindgen = { version = "0.2.53", features = ["serde-serialize"] }
+wasm-bindgen = { version = "0.2.54", features = ["serde-serialize"] }
 
 [features]
 default = ["parser_nom"]
