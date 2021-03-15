@@ -27,7 +27,7 @@ parser_pest = ["pest", "pest_derive"]
 
 [dev-dependencies]
 lazy_static = "1.4.0"
-pretty_assertions = "0.6.1"
+pretty_assertions = "0.7.1"
 
 [lib]
 crate-type = ["lib", "cdylib"]
