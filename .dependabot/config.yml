@@ -1,8 +1,0 @@
-version: 1
-update_configs:
-  - package_manager: "javascript"
-    directory: "/ui"
-    update_schedule: "weekly"
-  - package_manager: "rust:cargo"
-    directory: "/sync"
-    update_schedule: "weekly"
